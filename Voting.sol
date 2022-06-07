@@ -20,12 +20,12 @@ contract Voting is Ownable {
 
     //voting workflow
     enum WorkflowStatus {
-        RegisteringVoters,
-        ProposalsRegistrationStarted,
-        ProposalsRegistrationEnded,
-        VotingSessionStarted,
-        VotingSessionEnded,
-        VotesTallied
+        RegisteringVoters, //0
+        ProposalsRegistrationStarted,//1
+        ProposalsRegistrationEnded,//2
+        VotingSessionStarted,//3
+        VotingSessionEnded,//4
+        VotesTallied//5
     }
 
     //events
@@ -33,19 +33,22 @@ contract Voting is Ownable {
     event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
     event ProposalRegistered(uint proposalId);
     event Voted (address voter, uint proposalId);
+    
+    //state variables
     //current workflow
     WorkflowStatus public currentWorkflow;
-
     //addess mapping to voter allowed to vote (whitelist)
+    //set public to create automatic getter and people check list of voters
     mapping(address => Voter) public whitelistedAddresses;
     //proposal mappping
+    //set public to create automatic getter and people check list of proposals
     mapping(uint => Proposal) public proposals;
     //incremental number to assign a unique id to a proposal
     uint private proposalId =0;
     //list description used to check if a proposal already exists
     string[] proposalDescriptionList;
 
-    //Modifier
+    //Modifier to check only registered address
     modifier onlyRegistered() { 
        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
        _;
@@ -94,7 +97,7 @@ contract Voting is Ownable {
     }
 
 
-    //Get the winning proposal id when votes are closed
+    //Get the winning proposal id when votes are closed. Simple majority consensus (proposal with most vote win)
     function winningProposalId() public view returns (uint) {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         uint winnerVoteCount = 0;
