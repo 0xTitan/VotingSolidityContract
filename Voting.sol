@@ -35,13 +35,13 @@ contract Voting is Ownable {
     //current workflow
     WorkflowStatus currentWorkflow;
 
-    //list addess allowed to vote (whitelist)
+    //addess mapping to voter allowed to vote (whitelist)
     mapping(address => Voter) public whitelistedAddresses;
-    //proposal list
+    //proposal mappping
     mapping(uint => Proposal) public proposals;
     //incremental number to assign a unique id to a proposal
-    uint proposalId =0;
-
+    uint private proposalId =0;
+    //list description used to check if a proposal already exists
     string[] public proposalDescriptionList;
 
 
@@ -58,14 +58,14 @@ contract Voting is Ownable {
         emit VoterRegistered(_address);
     }
 
-     //register voters
+     //register proposals
     function registerProposal(string memory _description) public {
         require(uint8(currentWorkflow) ==1,"Phase invalid - Proposal registration is forbidden");
         require(msg.sender !=address(0),"address invalid");
-        require(msg.sender !=owner(),"Admin cannot participate");
+        require(msg.sender !=owner(),"Owner cannot participate");
         require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
         require(!checkProposalExists(_description),"Proposal already exists");
-        //create voter with init value
+        //create proposal with init value
         Proposal memory proposal = Proposal({description : _description, voteCount:0});
         proposals[proposalId] = proposal;
         //send event
@@ -74,15 +74,42 @@ contract Voting is Ownable {
         proposalDescriptionList.push(_description);
     }
 
+    //register vote
+    function Vote(uint _proposalId) public {
+        require(uint8(currentWorkflow) ==3,"Phase invalid - Voting is forbidden");
+        require(msg.sender !=address(0),"address invalid");
+        require(msg.sender !=owner(),"Owner cannot participate");
+        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
+        require(!whitelistedAddresses[msg.sender].hasVoted,"Address has already voted");
+        require(_proposalId<= proposalId && proposalId >=0,"PropoalId doesn't exist");
+        //mark voter hasVoted && register proposalId
+        whitelistedAddresses[msg.sender].hasVoted =true;
+        whitelistedAddresses[msg.sender].votedProposalId= _proposalId;
+        //send event
+        emit Voted(msg.sender,_proposalId);
+        //increment vote count
+        proposals[_proposalId].voteCount += 1;
+    }
+
 
     //Get the winning proposal id when votes are closed
     function winningProposalId() public view returns (uint){
-
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
+        uint winnerVoteCount = 0;
+        uint winningPropId =0;
+        for (uint i=0; i<proposalId; i++) {
+           if(proposals[i].voteCount >=0 ){
+               winnerVoteCount = proposals[i].voteCount;
+               winningPropId = i;
+           }
+        }
+        return winningPropId;
     }
 
      //Get the proposal winner when votes are closed
     function getWinner () public view returns (Proposal memory){
-
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
+        return proposals[winningProposalId()];
     }
 
     function checkProposalExists(string memory _description) internal view returns (bool){
@@ -131,6 +158,13 @@ contract Voting is Ownable {
         require(uint8(currentWorkflow) ==3,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.VotingSessionEnded;
+        emit WorkflowStatusChange(oldStatus, currentWorkflow);
+    }
+
+     function startVotesTalliedPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==4,"Phase invalid");
+        WorkflowStatus oldStatus = currentWorkflow;
+        currentWorkflow = WorkflowStatus.VotesTallied;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
      /*************************************************************/
