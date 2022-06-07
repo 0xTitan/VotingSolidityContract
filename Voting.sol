@@ -42,12 +42,14 @@ contract Voting is Ownable {
     //incremental number to assign a unique id to a proposal
     uint proposalId =0;
 
+    string[] public proposalDescriptionList;
+
 
     //register voters
     function registerVoter(address _address) public onlyOwner {
         require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
         require(_address !=address(0),"address invalid");
-        require(_address !=msg.sender,"Admin cannot participate");
+        require(_address !=owner(),"Admin cannot participate");
         require(!whitelistedAddresses[_address].isRegistered,"Address already registered");
         //create voter with init value
         Voter memory voter = Voter({isRegistered : true, hasVoted :false,votedProposalId : 0});
@@ -57,17 +59,19 @@ contract Voting is Ownable {
     }
 
      //register voters
-    function registerProposal(string memory _description) public onlyOwner {
+    function registerProposal(string memory _description) public {
         require(uint8(currentWorkflow) ==1,"Phase invalid - Proposal registration is forbidden");
         require(msg.sender !=address(0),"address invalid");
         require(msg.sender !=owner(),"Admin cannot participate");
-        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted");
+        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
+        require(!checkProposalExists(_description),"Proposal already exists");
         //create voter with init value
         Proposal memory proposal = Proposal({description : _description, voteCount:0});
         proposals[proposalId] = proposal;
         //send event
         emit ProposalRegistered(proposalId);
         proposalId++;
+        proposalDescriptionList.push(_description);
     }
 
 
@@ -79,6 +83,15 @@ contract Voting is Ownable {
      //Get the proposal winner when votes are closed
     function getWinner () public view returns (Proposal memory){
 
+    }
+
+    function checkProposalExists(string memory _description) internal view returns (bool){
+        for (uint i=0; i<proposalDescriptionList.length; i++) {
+            if(keccak256(abi.encodePacked(proposalDescriptionList[i])) == keccak256(abi.encodePacked(_description))){
+                return true;
+            }
+        }
+        return false;
     }
 
 
