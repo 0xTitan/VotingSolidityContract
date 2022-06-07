@@ -114,7 +114,8 @@ contract Voting is Ownable {
         return proposals[winningProposalId()].description;
     }
 
-    //keccak usage to compare string values for proposal description
+    //keccak usage to compare string values for proposal description. This should be manage in the frontend.
+    //added here to validate the contract
     function checkProposalExists(string memory _description) internal view returns (bool) {
         for (uint i=0; i<proposalDescriptionList.length; i++) {
             if(keccak256(abi.encodePacked(proposalDescriptionList[i])) == keccak256(abi.encodePacked(_description))){
