@@ -88,7 +88,7 @@ contract Voting is Ownable {
     function Vote(uint _proposalId) public onlyRegistered {
         require(uint8(currentWorkflow)==3,"Phase invalid - Voting is forbidden");
         require(!whitelistedAddresses[msg.sender].hasVoted,"Address has already voted");
-        require(_proposalId<= proposalId && proposalId >=0,"Proposal doesn't exist");
+        require(_proposalId< proposalId && proposalId >=0,"Proposal doesn't exist");
         //mark voter hasVoted && register proposalId
         whitelistedAddresses[msg.sender].hasVoted =true;
         whitelistedAddresses[msg.sender].votedProposalId= _proposalId;
