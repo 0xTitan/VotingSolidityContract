@@ -54,7 +54,8 @@ contract Voting is Ownable {
        _;
     }
 
-    //register voters. We assume the owner cannot participate to impartial.
+    //register voters. We assume the owner cannot participate to stay impartial.
+    //register nvoter address one by one to avoid a too big list that could revert the transaction if gasLimit is not enought
     function registerVoter(address _address) public onlyOwner {
         require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
         require(_address !=address(0),"address invalid");
@@ -65,6 +66,7 @@ contract Voting is Ownable {
         whitelistedAddresses[_address] = voter;
         //send event
         emit VoterRegistered(_address);
+        
     }
 
      //register proposals
@@ -98,7 +100,7 @@ contract Voting is Ownable {
 
 
     //Get the winning proposal id when votes are closed. Simple majority consensus (proposal with most vote win)
-    function winningProposalId() public view returns (uint) {
+    function winningProposalId() internal view returns (uint) {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         uint winnerVoteCount = 0;
         uint winningPropId =0;
@@ -112,7 +114,7 @@ contract Voting is Ownable {
     }
 
      //Get the proposal winner when votes are closed
-    function getWinner () public view returns (string memory) {
+    function getWinner() public view returns (string memory) {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         return proposals[winningProposalId()].description;
     }
@@ -142,6 +144,7 @@ contract Voting is Ownable {
     }*/
 
     //only one fonction to manage vote phase
+    //owner update phase by passing value requested
     function startNextPhase(WorkflowStatus _nextPhase) public onlyOwner {
         require(uint8(currentWorkflow) == uint8(_nextPhase)-1,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
