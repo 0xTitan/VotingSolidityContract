@@ -138,7 +138,7 @@ contract Voting is Ownable {
         uint256 winnerVoteCount = 0;
         uint256 winningPropId = 0;
         for (uint256 i = 0; i < proposalId; i++) {
-            if (proposals[i].voteCount >= 0) {
+            if (proposals[i].voteCount > winnerVoteCount) {
                 winnerVoteCount = proposals[i].voteCount;
                 winningPropId = i;
             }
