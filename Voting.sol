@@ -29,70 +29,48 @@ contract Voting is Ownable {
     }
 
     //events
-    event VoterRegistered(address voterAddress);
-    event WorkflowStatusChange(
-        WorkflowStatus previousStatus,
-        WorkflowStatus newStatus
-    );
-    event ProposalRegistered(uint256 proposalId);
-    event Voted(address voter, uint256 proposalId);
+    event VoterRegistered(address voterAddress); 
+    event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
+    event ProposalRegistered(uint proposalId);
+    event Voted (address voter, uint proposalId);
     //current workflow
     WorkflowStatus currentWorkflow;
 
     //addess mapping to voter allowed to vote (whitelist)
     mapping(address => Voter) public whitelistedAddresses;
     //proposal mappping
-    mapping(uint256 => Proposal) public proposals;
+    mapping(uint => Proposal) public proposals;
     //incremental number to assign a unique id to a proposal
-    uint256 private proposalId = 0;
+    uint private proposalId =0;
     //list description used to check if a proposal already exists
     string[] public proposalDescriptionList;
 
-    constructor() {
+    constructor(){
         currentWorkflow = WorkflowStatus.RegisteringVoters;
     }
 
     //register voters
     function registerVoter(address _address) public onlyOwner {
-        require(
-            uint8(currentWorkflow) == 0,
-            "Phase invalid - Voter registration is forbidden"
-        );
-        require(_address != address(0), "address invalid");
-        require(_address != owner(), "Admin cannot participate");
-        require(
-            !whitelistedAddresses[_address].isRegistered,
-            "Address already registered"
-        );
+        require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
+        require(_address !=address(0),"address invalid");
+        require(_address !=owner(),"Admin cannot participate");
+        require(!whitelistedAddresses[_address].isRegistered,"Address already registered");
         //create voter with init value
-        Voter memory voter = Voter({
-            isRegistered: true,
-            hasVoted: false,
-            votedProposalId: 0
-        });
+        Voter memory voter = Voter({isRegistered : true, hasVoted :false,votedProposalId : 0});
         whitelistedAddresses[_address] = voter;
         //send event
         emit VoterRegistered(_address);
     }
 
-    //register proposals
+     //register proposals
     function registerProposal(string memory _description) public {
-        require(
-            uint8(currentWorkflow) == 1,
-            "Phase invalid - Proposal registration is forbidden"
-        );
-        require(msg.sender != address(0), "address invalid");
-        require(msg.sender != owner(), "Owner cannot participate");
-        require(
-            whitelistedAddresses[msg.sender].isRegistered,
-            "Address not registered (whitelisted)"
-        );
-        require(!checkProposalExists(_description), "Proposal already exists");
+        require(uint8(currentWorkflow) ==1,"Phase invalid - Proposal registration is forbidden");
+        require(msg.sender !=address(0),"address invalid");
+        require(msg.sender !=owner(),"Owner cannot participate");
+        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
+        require(!checkProposalExists(_description),"Proposal already exists");
         //create proposal with init value
-        Proposal memory proposal = Proposal({
-            description: _description,
-            voteCount: 0
-        });
+        Proposal memory proposal = Proposal({description : _description, voteCount:0});
         proposals[proposalId] = proposal;
         //send event
         emit ProposalRegistered(proposalId);
@@ -101,77 +79,59 @@ contract Voting is Ownable {
     }
 
     //register vote
-    function Vote(uint256 _proposalId) public {
-        require(
-            uint8(currentWorkflow) == 3,
-            "Phase invalid - Voting is forbidden"
-        );
-        require(msg.sender != address(0), "address invalid");
-        require(msg.sender != owner(), "Owner cannot participate");
-        require(
-            whitelistedAddresses[msg.sender].isRegistered,
-            "Address not registered (whitelisted)"
-        );
-        require(
-            !whitelistedAddresses[msg.sender].hasVoted,
-            "Address has already voted"
-        );
-        require(
-            _proposalId <= proposalId && proposalId >= 0,
-            "PropoalId doesn't exist"
-        );
+    function Vote(uint _proposalId) public {
+        require(uint8(currentWorkflow) ==3,"Phase invalid - Voting is forbidden");
+        require(msg.sender !=address(0),"address invalid");
+        require(msg.sender !=owner(),"Owner cannot participate");
+        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
+        require(!whitelistedAddresses[msg.sender].hasVoted,"Address has already voted");
+        require(_proposalId<= proposalId && proposalId >=0,"PropoalId doesn't exist");
         //mark voter hasVoted && register proposalId
-        whitelistedAddresses[msg.sender].hasVoted = true;
-        whitelistedAddresses[msg.sender].votedProposalId = _proposalId;
-        //send event
-        emit Voted(msg.sender, _proposalId);
+        whitelistedAddresses[msg.sender].hasVoted =true;
+        whitelistedAddresses[msg.sender].votedProposalId= _proposalId;
         //increment vote count
         proposals[_proposalId].voteCount += 1;
+        //send event
+        emit Voted(msg.sender,_proposalId);
     }
 
+
     //Get the winning proposal id when votes are closed
-    function winningProposalId() public view returns (uint256) {
-        require(
-            uint8(currentWorkflow) == 5,
-            "Phase invalid - Winner cannot be determined yet !"
-        );
-        uint256 winnerVoteCount = 0;
-        uint256 winningPropId = 0;
-        for (uint256 i = 0; i < proposalId; i++) {
-            if (proposals[i].voteCount > winnerVoteCount) {
-                winnerVoteCount = proposals[i].voteCount;
-                winningPropId = i;
-            }
+    function winningProposalId() public view returns (uint){
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
+        uint winnerVoteCount = 0;
+        uint winningPropId =0;
+        for (uint i=0; i<proposalId; i++) {
+           if(proposals[i].voteCount > winnerVoteCount ){
+               winnerVoteCount = proposals[i].voteCount;
+               winningPropId = i;
+           }
         }
         return winningPropId;
     }
 
-    //Get the proposal winner when votes are closed
-    function getWinner() public view returns (Proposal memory) {
-        require(
-            uint8(currentWorkflow) == 5,
-            "Phase invalid - Winner cannot be determined yet !"
-        );
+     //Get the proposal winner when votes are closed
+    function getWinner () public view returns (Proposal memory){
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         return proposals[winningProposalId()];
     }
 
-    function checkProposalExists(string memory _description)
-        internal
-        view
-        returns (bool)
-    {
-        for (uint256 i = 0; i < proposalDescriptionList.length; i++) {
-            if (
-                keccak256(abi.encodePacked(proposalDescriptionList[i])) ==
-                keccak256(abi.encodePacked(_description))
-            ) {
+    //keccak usage to compare string values for proposal description
+    function checkProposalExists(string memory _description) internal view returns (bool){
+        for (uint i=0; i<proposalDescriptionList.length; i++) {
+            if(keccak256(abi.encodePacked(proposalDescriptionList[i])) == keccak256(abi.encodePacked(_description))){
                 return true;
             }
         }
         return false;
     }
 
+
     /******************* Workflow management********************/
+
+    //contract will be deployed with default value for WorkflowStatus = 0 which means RegisteringVoters
+    //so no need to define a step to move to RegisteringVoters phase
+
     /*function startRegisterVoterPhase() public onlyOwner{
         require(uint8(currentWorkflow) <=0,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
@@ -179,39 +139,42 @@ contract Voting is Ownable {
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }*/
 
-    function startProposalsRegistrationPhase() public onlyOwner {
-        require(uint8(currentWorkflow) == 0, "Phase invalid");
+    
+    function startProposalsRegistrationPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==0,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.ProposalsRegistrationStarted;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
 
-    function endProposalsRegistrationPhase() public onlyOwner {
-        require(uint8(currentWorkflow) == 1, "Phase invalid");
+    
+    function endProposalsRegistrationPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==1,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.ProposalsRegistrationEnded;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
 
-    function startVotingSessionPhase() public onlyOwner {
-        require(uint8(currentWorkflow) == 2, "Phase invalid");
+   
+    function startVotingSessionPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==2,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.VotingSessionStarted;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
 
-    function endVotingSessionPhase() public onlyOwner {
-        require(uint8(currentWorkflow) == 3, "Phase invalid");
+    function endVotingSessionPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==3,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.VotingSessionEnded;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
 
-    function startVotesTalliedPhase() public onlyOwner {
-        require(uint8(currentWorkflow) == 4, "Phase invalid");
+     function startVotesTalliedPhase() public onlyOwner{
+        require(uint8(currentWorkflow) ==4,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.VotesTallied;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
-    /*************************************************************/
+     /*************************************************************/
 }
