@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.14;
 
-//get permalink from openZeppelin github
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/a7818b49a481e867230d4fa49d106bd304c5d95d/contracts/access/Ownable.sol";
+//get Ownable from openZeppelin github
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 
 contract Voting is Ownable {
     //voter struct
@@ -28,12 +28,6 @@ contract Voting is Ownable {
         VotesTallied//5
     }
 
-    //events
-    event VoterRegistered(address voterAddress); 
-    event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
-    event ProposalRegistered(uint proposalId);
-    event Voted (address voter, uint proposalId);
-    
     //state variables
     //current workflow
     WorkflowStatus public currentWorkflow;
@@ -44,9 +38,15 @@ contract Voting is Ownable {
     //set public to create automatic getter and people check list of proposals
     mapping(uint => Proposal) public proposals;
     //incremental number to assign a unique id to a proposal
-    uint private proposalId =0;
+    uint private proposalId;
     //list description used to check if a proposal already exists
     string[] proposalDescriptionList;
+
+    //events
+    event VoterRegistered(address voterAddress); 
+    event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
+    event ProposalRegistered(uint proposalId);
+    event Voted (address voter, uint proposalId);
 
     //Modifier to check only registered address
     modifier onlyRegistered() { 
@@ -71,7 +71,7 @@ contract Voting is Ownable {
 
      //register proposals
      //owner address and address(0) are filtered because cannot be added as voter, means not registered
-    function registerProposal(string memory _description) public onlyRegistered {
+    function registerProposal(string calldata _description) public onlyRegistered {
         require(uint8(currentWorkflow)==1,"Phase invalid - Proposal registration is forbidden");
         require(!checkProposalExists(_description),"Proposal already exists");
         //create proposal with init value
@@ -121,7 +121,7 @@ contract Voting is Ownable {
 
     //keccak usage to compare string values for proposal description. This should be manage in the frontend.
     //added here to validate the contract
-    function checkProposalExists(string memory _description) internal view returns (bool) {
+    function checkProposalExists(string calldata _description) internal view returns (bool) {
         for (uint i=0; i<proposalDescriptionList.length; i++) {
             if(keccak256(abi.encodePacked(proposalDescriptionList[i])) == keccak256(abi.encodePacked(_description))){
                 return true;
