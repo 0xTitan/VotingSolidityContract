@@ -4,31 +4,6 @@ pragma solidity 0.8.14;
 //get Ownable from openZeppelin github
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 
-
-/********Voting contract************** 
-This contract manage voting system by phase (call startNextPhase with uint):
-
-RegisteringVoters => 0
-ProposalsRegistrationStarted=>1
-ProposalsRegistrationEnded=>2
-VotingSessionStarted=>3
-VotingSessionEnded=>4
-VotesTallied=>5
-
-Only owner of the contract can change the phase
-Only owner can register new voting address
-
-Registered address can create vote proposal
-Registered address can vote
-
-Anyone can check vote result on proposal and address vote.
-Anyone can check winning proposal
-
-When deploying the contract a "white vote" proposal is automatically created
-If more than one proposal has same amount of vote no winner elected
-
-****************************************/
-
 contract Voting is Ownable {
     //voter struct
     struct Voter {
@@ -62,6 +37,9 @@ contract Voting is Ownable {
     //proposal mappping
     //set public to create automatic getter and people check list of proposals
     mapping(uint => Proposal) public proposals;
+    //mapping to help determine the winner. It contains nbVote=> number of proposals.
+    //Eg : if two proposals has 4 vote count each the mapping will be 4 (votes)=>2 (proposals)
+    mapping(uint => uint) public nbProposalGroupByVoteCount;
     //incremental number to assign a unique id to a proposal
     uint private proposalId;
     //list description used to check if a proposal already exists
@@ -139,7 +117,6 @@ contract Voting is Ownable {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         uint winnerVoteCount = 0;
         uint winnerProposalId;
-        uint nbProposalWithSameVoteCount;
         //do not check white vote proposal so start at index 1
         for (uint i=1; i<proposalId; i++) {
             uint currentVoteCount = proposals[i].voteCount;
@@ -150,14 +127,7 @@ contract Voting is Ownable {
         }
 
         //check if only one proposal win, means only one with winnerVoteCount
-        for (uint i=1; i<proposalId; i++) {
-            uint currentVoteCount = proposals[i].voteCount;
-           if(( currentVoteCount == winnerVoteCount)){
-              nbProposalWithSameVoteCount++;
-           }
-        }
-
-        return (winnerProposalId,nbProposalWithSameVoteCount==1);
+        return (winnerProposalId,nbProposalGroupByVoteCount[winnerVoteCount]==1);
     }
 
     //Get the proposal winner when votes are closed
@@ -182,6 +152,16 @@ contract Voting is Ownable {
         return false;
     }
 
+    //compute vote. Populate nbProposalGroupByVoteCount mapping to help determine if they is a winner
+    //Eg : if two proposals has 4 vote count each the mapping will be 4 (votes)=>2 (proposals)
+    function computeVote() internal {
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
+        //do not check white vote proposal so start at index 1
+        for (uint i=1; i<proposalId; i++) {
+           nbProposalGroupByVoteCount[proposals[i].voteCount]++;
+        }
+    }
+
 
     /******************* Workflow management********************/
 
@@ -202,6 +182,10 @@ contract Voting is Ownable {
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = _nextPhase;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
+        //compute vote
+        if(currentWorkflow == WorkflowStatus.VotesTallied){
+            computeVote();
+        }
     }
     
 
