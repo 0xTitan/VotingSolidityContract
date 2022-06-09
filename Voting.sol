@@ -39,7 +39,7 @@ contract Voting is Ownable {
     mapping(uint => Proposal) public proposals;
     //mapping to help determine the winner. It contains nbVote=> number of proposals.
     //Eg : if two proposals has 4 vote count each the mapping will be 4 (votes)=>2 (proposals)
-    mapping(uint => uint) public nbProposalGroupByVoteCount;
+    mapping(uint => uint) nbProposalGroupByVoteCount;
     //incremental number to assign a unique id to a proposal
     uint private proposalId;
     //list description used to check if a proposal already exists
