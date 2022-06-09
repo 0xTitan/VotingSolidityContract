@@ -24,6 +24,8 @@ Anyone can check winning proposal
 
 When deploying the contract a "white vote" proposal is automatically created
 If more than one proposal has same amount of vote no winner can be determined
+
+When being in last voting phase, the owner can reset the voting processus and start with fresh new vote proposal
 ****************************************/
 contract Voting is Ownable {
     //voter struct
@@ -66,6 +68,10 @@ contract Voting is Ownable {
     //list description used to check if a proposal already exists
     string[] proposalDescriptionList;
 
+    //Array for reset
+    address[] addresses;
+    uint[] voteCountGroupBy;
+
     //events
     event VoterRegistered(address voterAddress); 
     event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
@@ -84,18 +90,23 @@ contract Voting is Ownable {
     }
 
     //register voters. We assume the owner cannot participate to stay impartial.
-    //register voter address one by one to avoid a too big list that could revert the transaction if gasLimit is not enought
-    function registerVoter(address _address) public onlyOwner {
+    //max list size is set to 100 to limit gas usage and potential rollback
+    function registerVoter(address[] calldata _addresses) public onlyOwner {
         require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
-        require(_address !=address(0),"address invalid");
-        require(_address !=owner(),"Admin cannot participate");
-        require(!whitelistedAddresses[_address].isRegistered,"Address already registered");
-        //create voter with init value
-        Voter memory voter = Voter({isRegistered : true, hasVoted :false, votedProposalId : 0});
-        whitelistedAddresses[_address] = voter;
-        //send event
-        emit VoterRegistered(_address);
-        
+        require(_addresses.length >0,"Address list is empty");
+        require(_addresses.length <=100,"Address over 100 voters.");
+        for(uint i=0; i<_addresses.length ; i++){
+            address addr =  _addresses[i];
+            require(addr !=address(0),"address invalid");
+            require(addr !=owner(),"Admin cannot participate");
+            require(!whitelistedAddresses[addr].isRegistered,"Address already registered");
+            //create voter with init value
+            Voter memory voter = Voter({isRegistered : true, hasVoted :false, votedProposalId : 0});
+            whitelistedAddresses[addr] = voter;
+            addresses.push(addr);
+            //send event
+            emit VoterRegistered(addr);
+        }   
     }
 
     //register proposals
@@ -180,7 +191,45 @@ contract Voting is Ownable {
         //do not check white vote proposal so start at index 1
         for (uint i=1; i<proposalId; i++) {
            nbProposalGroupByVoteCount[proposals[i].voteCount]++;
+           voteCountGroupBy.push(proposals[i].voteCount);
         }
+    }
+
+    /*******************RESET***********************/
+    //Reset data, can only be called on the last phase to not interrupt the current vote phase
+    function reset() public onlyOwner {
+        require(uint8(currentWorkflow) ==5,"Phase invalid - Reset can only be done at the end of vote processus !");
+        //delete proposals && reset vote count for "white vote"
+        for (uint i=0; i<proposalId; i++) {
+           if(i==0){
+               proposals[i].voteCount=0;
+           }else{
+               delete proposals[i];
+           }
+        }
+
+        //delete voters
+        for (uint i=0; i<addresses.length; i++) {
+          delete whitelistedAddresses[addresses[i]];
+        }
+
+         //delete compute vote mapping
+        for (uint i=0; i<voteCountGroupBy.length; i++) {
+          delete nbProposalGroupByVoteCount[voteCountGroupBy[i]];
+        }
+
+        //delete proposals list
+        delete proposalDescriptionList;
+
+        //reset proposal counter to 1. 0 is used for "White vote"
+        proposalId=1;
+
+        //reset array used foe deletion
+        delete addresses;
+        delete voteCountGroupBy;
+
+        //reset workflow
+        currentWorkflow = WorkflowStatus.RegisteringVoters;
     }
 
 
