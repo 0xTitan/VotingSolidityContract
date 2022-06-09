@@ -4,6 +4,31 @@ pragma solidity 0.8.14;
 //get Ownable from openZeppelin github
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 
+
+/********Voting contract************** 
+This contract manage voting system by phase (call startNextPhase with uint):
+
+RegisteringVoters => 0
+ProposalsRegistrationStarted=>1
+ProposalsRegistrationEnded=>2
+VotingSessionStarted=>3
+VotingSessionEnded=>4
+VotesTallied=>5
+
+Only owner of the contract can change the phase
+Only owner can register new voting address
+
+Registered address can create vote proposal
+Registered address can vote
+
+Anyone can check vote result on proposal and address vote.
+Anyone can check winning proposal
+
+When deploying the contract a "white vote" proposal is automatically created
+If more than one proposal has same amount of vote no winner elected
+
+****************************************/
+
 contract Voting is Ownable {
     //voter struct
     struct Voter {
