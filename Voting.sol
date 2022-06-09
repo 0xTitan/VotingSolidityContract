@@ -48,6 +48,11 @@ contract Voting is Ownable {
     event ProposalRegistered(uint proposalId);
     event Voted (address voter, uint proposalId);
 
+    //constructor to register by default white vote proposal
+    constructor(){
+        createProposal("White vote");
+    }
+
     //Modifier to check only registered address
     modifier onlyRegistered() { 
        require(whitelistedAddresses[msg.sender].isRegistered,"Address not registered (whitelisted)");
@@ -55,7 +60,7 @@ contract Voting is Ownable {
     }
 
     //register voters. We assume the owner cannot participate to stay impartial.
-    //register nvoter address one by one to avoid a too big list that could revert the transaction if gasLimit is not enought
+    //register voter address one by one to avoid a too big list that could revert the transaction if gasLimit is not enought
     function registerVoter(address _address) public onlyOwner {
         require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
         require(_address !=address(0),"address invalid");
@@ -69,12 +74,17 @@ contract Voting is Ownable {
         
     }
 
-     //register proposals
-     //owner address and address(0) are filtered because cannot be added as voter, means not registered
+    //register proposals
+    //owner address and address(0) are filtered because cannot be added as voter, means not registered
     function registerProposal(string calldata _description) public onlyRegistered {
         require(uint8(currentWorkflow)==1,"Phase invalid - Proposal registration is forbidden");
         require(!checkProposalExists(_description),"Proposal already exists");
         //create proposal with init value
+        createProposal(_description);
+    }
+
+    //proposal creation
+    function createProposal(string memory _description) internal {
         Proposal memory proposal = Proposal({description : _description, voteCount:0});
         proposals[proposalId] = proposal;
         //send event
@@ -100,23 +110,40 @@ contract Voting is Ownable {
 
 
     //Get the winning proposal id when votes are closed. Simple majority consensus (proposal with most vote win)
-    function winningProposalId() internal view returns (uint) {
+    function winningProposalId() internal view returns (uint winnerId, bool hasUniqueWinner) {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         uint winnerVoteCount = 0;
-        uint winningPropId =0;
-        for (uint i=0; i<proposalId; i++) {
-           if(proposals[i].voteCount > winnerVoteCount ){
-               winnerVoteCount = proposals[i].voteCount;
-               winningPropId = i;
+        uint winnerProposalId;
+        uint nbProposalWithSameVoteCount;
+        //do not check white vote proposal so start at index 1
+        for (uint i=1; i<proposalId; i++) {
+            uint currentVoteCount = proposals[i].voteCount;
+            if(( currentVoteCount > winnerVoteCount)){
+               winnerVoteCount = currentVoteCount;
+               winnerProposalId =i;
            }
         }
-        return winningPropId;
+
+        //check if only one proposal win, means only one with winnerVoteCount
+        for (uint i=1; i<proposalId; i++) {
+            uint currentVoteCount = proposals[i].voteCount;
+           if(( currentVoteCount == winnerVoteCount)){
+              nbProposalWithSameVoteCount++;
+           }
+        }
+
+        return (winnerProposalId,nbProposalWithSameVoteCount==1);
     }
 
-     //Get the proposal winner when votes are closed
+    //Get the proposal winner when votes are closed
     function getWinner() public view returns (string memory) {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
-        return proposals[winningProposalId()].description;
+        (uint winner,bool hasWinner) = winningProposalId();
+        string memory voteResult = "no winner";
+        if(hasWinner){
+            voteResult=proposals[winner].description;
+        }
+        return voteResult;
     }
 
     //keccak usage to compare string values for proposal description. This should be manage in the frontend.
