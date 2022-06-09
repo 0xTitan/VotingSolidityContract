@@ -65,9 +65,10 @@ contract Voting is Ownable {
     mapping(uint => uint) nbProposalGroupByVoteCount;
     //incremental number to assign a unique id to a proposal
     uint private proposalId;
+    //default proposal if for white list
+    string whiteVoteProposal="White vote";
     //list description used to check if a proposal already exists
     string[] proposalDescriptionList;
-
     //Array for reset
     address[] addresses;
     uint[] voteCountGroupBy;
@@ -80,7 +81,7 @@ contract Voting is Ownable {
 
     //constructor to register by default white vote proposal
     constructor(){
-        createProposal("White vote");
+        createProposal(whiteVoteProposal);
     }
 
     //Modifier to check only registered address
@@ -159,7 +160,7 @@ contract Voting is Ownable {
         }
 
         //check if only one proposal win, means only one with winnerVoteCount
-        return (winnerProposalId,nbProposalGroupByVoteCount[winnerVoteCount]==1);
+        return (winnerProposalId,winnerVoteCount > 0 && nbProposalGroupByVoteCount[winnerVoteCount]==1);
     }
 
     //Get the proposal winner when votes are closed
@@ -220,6 +221,7 @@ contract Voting is Ownable {
 
         //delete proposals list
         delete proposalDescriptionList;
+        proposalDescriptionList.push(whiteVoteProposal);
 
         //reset proposal counter to 1. 0 is used for "White vote"
         proposalId=1;
