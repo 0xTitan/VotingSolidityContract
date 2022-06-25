@@ -12,19 +12,14 @@ ProposalsRegistrationEnded=>2
 VotingSessionStarted=>3
 VotingSessionEnded=>4
 VotesTallied=>5
-
 Only owner of the contract can change the phase
 Only owner can register new voting address
-
 Registered address can create vote proposal
 Registered address can vote
-
 Anyone can check vote result on proposal and address vote.
 Anyone can check winning proposal
-
 When deploying the contract a "white vote" proposal is automatically created
 If more than one proposal has same amount of vote no winner can be determined
-
 When being in last voting phase, the owner can reset the voting processus and start with fresh new vote proposal
 ****************************************/
 contract Voting is Ownable {
@@ -46,7 +41,7 @@ contract Voting is Ownable {
         RegisteringVoters, //0
         ProposalsRegistrationStarted,//1
         ProposalsRegistrationEnded,//2
-        VotingSessionStarted,//3
+        VotingSessionStarted,//3    
         VotingSessionEnded,//4
         VotesTallied//5
     }
@@ -55,20 +50,14 @@ contract Voting is Ownable {
     //current workflow
     WorkflowStatus public currentWorkflow;
     //addess mapping to voter allowed to vote (whitelist)
-    //set public to create automatic getter and people check list of voters
-    mapping(address => Voter) public whitelistedAddresses;
-    //proposal mappping
-    //set public to create automatic getter and people check list of proposals
-    mapping(uint => Proposal) public proposals;
+    mapping(address => Voter) whitelistedAddresses;
+    //proposal array
+    Proposal[] proposals;
     //mapping to help determine the winner. It contains nbVote=> number of proposals.
     //Eg : if two proposals has 4 vote count each the mapping will be 4 (votes)=>2 (proposals)
     mapping(uint => uint) nbProposalGroupByVoteCount;
-    //incremental number to assign a unique id to a proposal
-    uint private proposalId;
     //default proposal if for white list
     string whiteVoteProposal="White vote";
-    //list description used to check if a proposal already exists
-    string[] proposalDescriptionList;
     //Array for reset
     address[] addresses;
     uint[] voteCountGroupBy;
@@ -90,9 +79,14 @@ contract Voting is Ownable {
        _;
     }
 
+    //get voter. Only whitelisted address can acces it
+    function getVoter(address _addr) external view onlyRegistered returns(Voter memory voter)  {
+            return  whitelistedAddresses[_addr];
+    }
+
     //register voters. We assume the owner cannot participate to stay impartial.
     //max list size is set to 100 to limit gas usage and potential rollback
-    function registerVoter(address[] calldata _addresses) public onlyOwner {
+    function registerVoter(address[] calldata _addresses) external onlyOwner {
         require(uint8(currentWorkflow) ==0,"Phase invalid - Voter registration is forbidden");
         require(_addresses.length >0,"Address list is empty");
         require(_addresses.length <=100,"Address over 100 voters.");
@@ -112,7 +106,7 @@ contract Voting is Ownable {
 
     //register proposals
     //owner address and address(0) are filtered because cannot be added as voter, means not registered
-    function registerProposal(string calldata _description) public onlyRegistered {
+    function registerProposal(string calldata _description) external onlyRegistered {
         require(uint8(currentWorkflow)==1,"Phase invalid - Proposal registration is forbidden");
         require(!checkProposalExists(_description),"Proposal already exists");
         //create proposal with init value
@@ -122,19 +116,17 @@ contract Voting is Ownable {
     //proposal creation
     function createProposal(string memory _description) internal {
         Proposal memory proposal = Proposal({description : _description, voteCount:0});
-        proposals[proposalId] = proposal;
+        proposals.push(proposal);
         //send event
-        emit ProposalRegistered(proposalId);
-        proposalId++;
-        proposalDescriptionList.push(_description);
+        emit ProposalRegistered(proposals.length-1);
     }
 
     //register vote
     //owner address and address(0) are filtered because cannot be added as voter, means not registered
-    function Vote(uint _proposalId) public onlyRegistered {
+    function Vote(uint _proposalId) external onlyRegistered {
         require(uint8(currentWorkflow)==3,"Phase invalid - Voting is forbidden");
         require(!whitelistedAddresses[msg.sender].hasVoted,"Address has already voted");
-        require(_proposalId< proposalId && proposalId >=0,"Proposal doesn't exist");
+        require(_proposalId < proposals.length,"Proposal doesn't exist");
         //mark voter hasVoted && register proposalId
         whitelistedAddresses[msg.sender].hasVoted =true;
         whitelistedAddresses[msg.sender].votedProposalId= _proposalId;
@@ -151,7 +143,7 @@ contract Voting is Ownable {
         uint winnerVoteCount = 0;
         uint winnerProposalId;
         //do not check white vote proposal so start at index 1
-        for (uint i=1; i<proposalId; i++) {
+        for (uint i=1; i<proposals.length; i++) {
             uint currentVoteCount = proposals[i].voteCount;
             if(( currentVoteCount > winnerVoteCount)){
                winnerVoteCount = currentVoteCount;
@@ -177,8 +169,8 @@ contract Voting is Ownable {
     //keccak usage to compare string values for proposal description. This should be manage in the frontend.
     //added here to validate the contract
     function checkProposalExists(string calldata _description) internal view returns (bool) {
-        for (uint i=0; i<proposalDescriptionList.length; i++) {
-            if(keccak256(abi.encodePacked(proposalDescriptionList[i])) == keccak256(abi.encodePacked(_description))){
+        for (uint i=0; i<proposals.length; i++) {
+            if(keccak256(abi.encodePacked(proposals[i].description)) == keccak256(abi.encodePacked(_description))){
                 return true;
             }
         }
@@ -190,7 +182,7 @@ contract Voting is Ownable {
     function computeVote() internal {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Winner cannot be determined yet !");
         //do not check white vote proposal so start at index 1
-        for (uint i=1; i<proposalId; i++) {
+        for (uint i=1; i<proposals.length; i++) {
            nbProposalGroupByVoteCount[proposals[i].voteCount]++;
            voteCountGroupBy.push(proposals[i].voteCount);
         }
@@ -198,10 +190,10 @@ contract Voting is Ownable {
 
     /*******************RESET***********************/
     //Reset data, can only be called on the last phase to not interrupt the current vote phase
-    function reset() public onlyOwner {
+    function reset() external onlyOwner {
         require(uint8(currentWorkflow) ==5,"Phase invalid - Reset can only be done at the end of vote processus !");
         //delete proposals && reset vote count for "white vote"
-        for (uint i=0; i<proposalId; i++) {
+        for (uint i=0; i<proposals.length; i++) {
            if(i==0){
                proposals[i].voteCount=0;
            }else{
@@ -218,13 +210,6 @@ contract Voting is Ownable {
         for (uint i=0; i<voteCountGroupBy.length; i++) {
           delete nbProposalGroupByVoteCount[voteCountGroupBy[i]];
         }
-
-        //delete proposals list
-        delete proposalDescriptionList;
-        proposalDescriptionList.push(whiteVoteProposal);
-
-        //reset proposal counter to 1. 0 is used for "White vote"
-        proposalId=1;
 
         //reset array used foe deletion
         delete addresses;
@@ -249,7 +234,7 @@ contract Voting is Ownable {
 
     //only one fonction to manage vote phase
     //owner update phase by passing value requested
-    function startNextPhase(WorkflowStatus _nextPhase) public onlyOwner {
+    function startNextPhase(WorkflowStatus _nextPhase) external onlyOwner {
         require(uint8(currentWorkflow) == uint8(_nextPhase)-1,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = _nextPhase;
@@ -269,7 +254,6 @@ contract Voting is Ownable {
         currentWorkflow = WorkflowStatus.ProposalsRegistrationStarted;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
-
     
     function endProposalsRegistrationPhase() public onlyOwner{
         require(uint8(currentWorkflow) ==1,"Phase invalid");
@@ -277,7 +261,6 @@ contract Voting is Ownable {
         currentWorkflow = WorkflowStatus.ProposalsRegistrationEnded;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
-
    
     function startVotingSessionPhase() public onlyOwner{
         require(uint8(currentWorkflow) ==2,"Phase invalid");
@@ -285,14 +268,12 @@ contract Voting is Ownable {
         currentWorkflow = WorkflowStatus.VotingSessionStarted;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
-
     function endVotingSessionPhase() public onlyOwner{
         require(uint8(currentWorkflow) ==3,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
         currentWorkflow = WorkflowStatus.VotingSessionEnded;
         emit WorkflowStatusChange(oldStatus, currentWorkflow);
     }
-
      function startVotesTalliedPhase() public onlyOwner{
         require(uint8(currentWorkflow) ==4,"Phase invalid");
         WorkflowStatus oldStatus = currentWorkflow;
